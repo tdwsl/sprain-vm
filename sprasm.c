@@ -511,9 +511,11 @@ void asmFile(char *filename) {
             *(p++) = c;
         *p = 0;
         if(p = strchr(buf, ';')) *p = 0;
-        if(buf[0]) {
+        p = buf;
+        while(*p && *p <= ' ') p++;
+        if(p[0]) {
             line = g_line;
-            asmLine(buf);
+            asmLine(p);
             g_line = line;
             g_filename = filename;
         }
