@@ -11,7 +11,7 @@ enum {
 
 enum {
     A_REG,
-    A_LOW,
+    A_LREG,
     A_NREG,
     A_OTHER,
 };
@@ -22,6 +22,8 @@ struct label {
 };
 
 struct unres {
+    char *filename;
+    unsigned int line;
     char ex[35];
     uint32_t addr, org;
     char type;
@@ -45,7 +47,7 @@ const char *lregs[] = {
 };
 
 unsigned int g_line;
-const char *g_filename = 0;
+char *g_filename = 0;
 
 uint32_t addr = 0;
 uint32_t org = 0;
@@ -53,8 +55,8 @@ uint32_t prev = 0;
 
 struct unres unres[100];
 int nunres = 0;
-struct label label[200];
-int nlabel = 0;
+struct label labels[200];
+int nlabels = 0;
 
 void error(const char *err) {
     printf("error at line %d in %s: %s\n", g_line, g_filename, err);
@@ -86,8 +88,176 @@ void addWord(uint32_t w) {
     org += 4;
 }
 
-void addVal(char *ex, char type) {
+void setWord(uint32_t ad, uint32_t w) {
+    *(uint32_t*)&memory[ad] = w;
 }
+
+void resAhead() {
+    int i;
+    for(i = 0; i < nunres; i++) {
+        if(strcmp(unres[i].ex, "+")) continue;
+        switch(unres[i].type) {
+        case T_WORD:
+            setWord(unres[i].addr, org);
+            break;
+        case T_BYTE:
+        case T_REL:
+            memory[unres[i].addr] = org-(unres[i].org+1);
+            break;
+        }
+        unres[i--] = unres[--nunres];
+    }
+}
+
+struct label *findLabel(char *name) {
+    int i;
+    for(i = nlabels-1; i >= 0; i--)
+        if(!strcmp(labels[i].name, name))
+            return &labels[i];
+    return 0;
+}
+
+int number(char *s, uint32_t *n) {
+    char neg = 0;
+    char base = 10;
+
+    if(*s == '-') {
+        if(*(++s) == 0) return 0;
+        neg = 1;
+    }
+    if(*s == '$') {
+        if(*(++s) == 0) return 0;
+        base = 16;
+    } else if(*s == '%') {
+        if(*(++s) == 0) return 0;
+        base = 2;
+    }
+
+    *n = 0;
+    do {
+        if(base <= 10) {
+            if(*s >= '0' && *s <= '0'+base-1)
+                *n = *n * base + *s - '0';
+            else return 0;
+        } else {
+            if(*s >= 'A' && *s <= 'A'+base-11)
+                *n = *n * base + *s - 'A' + 10;
+            else if(*s >= '0' && *s <= '9')
+                *n = *n * base + *s - '0';
+            else return 0;
+        }
+    } while (*(++s));
+
+    if(neg) *n *= -1;
+
+    return 1;
+}
+
+int tryEval(char *ex, uint32_t *n) {
+    char *vals[20];
+    char ops[20];
+    char *p, *b;
+    int nvals = 0, nops = 0;
+    const char *exError = "invalid expression";
+    struct label *lbl;
+    uint32_t m;
+    int i;
+
+    b = ex;
+    for(p = ex; *p; p++) {
+        if(strchr("+-", *p)) {
+            if(p == ex && *p == '-') continue;
+            if(p == b) error(exError);
+            ops[nops++] = *p;
+            *p = 0;
+            vals[nvals++] = b;
+            b = ++p;
+        }
+    }
+    if(b == p) error(exError);
+    vals[nvals++] = b;
+
+    if(nops != nvals-1) error(exError);
+
+    if(!number(vals[0], n)) {
+        lbl = findLabel(vals[0]);
+        if(!lbl) return 0;
+        *n = lbl->org;
+    }
+
+    for(i = 0; i < nops; i++) {
+        if(!number(vals[i+1], &m)) {
+            lbl = findLabel(vals[i+1]);
+            if(!lbl) return 0;
+            m = lbl->org;
+        }
+        switch(ops[i]) {
+        case '+':
+            *n += m;
+            break;
+        case '-':
+            *n -= m;
+            break;
+        }
+    }
+
+    return 1;
+}
+
+void resolve() {
+    int i;
+    uint32_t n;
+    for(i = 0; i < nunres; i++) {
+        if(!strcmp(unres[i].ex, "+")) continue;
+        if(!tryEval(unres[i].ex, &n)) continue;
+        switch(unres[i].type) {
+        case T_WORD:
+            setWord(unres[i].addr, n);
+            break;
+        case T_BYTE:
+            memory[unres[i].addr] = n;
+            break;
+        case T_REL:
+            memory[unres[i].addr] = n-(unres[i].org+1);
+            break;
+        }
+        unres[i--] = unres[--nunres];
+    }
+}
+
+void addVal(char *ex, char type) {
+    if(!strcmp(ex, "-")) {
+        switch(type) {
+        case T_WORD:
+            addWord(prev);
+            break;
+        case T_BYTE:
+        case T_REL:
+            addByte(prev-(org+1));
+            break;
+        }
+    } else {
+        unres[nunres].filename = g_filename;
+        unres[nunres].line = g_line;
+        strcpy(unres[nunres].ex, ex);
+        unres[nunres].type = type;
+        unres[nunres].addr = addr;
+        unres[nunres].org = org;
+        nunres++;
+        switch(type) {
+        case T_WORD:
+            addWord(0);
+            break;
+        case T_BYTE:
+        case T_REL:
+            addByte(0);
+            break;
+        }
+        resolve();
+    }
+}
+
+void asmFile(char *filename);
 
 void asmLine(char *line) {
     const char *syntaxError = "syntax error";
@@ -100,13 +270,15 @@ void asmLine(char *line) {
     char *p, *b, *s;
     char a1, a2;
     int i, j;
+    uint32_t n;
+    uint32_t r1, r2;
 
     /* tokenize */
 
     b = buf;
     p = buf;
 
-    do {
+    for(;;) {
         if(*line == '"') {
             if(b != p) error(syntaxError);
             s = strchr(line+1, '"');
@@ -118,23 +290,34 @@ void asmLine(char *line) {
         } else {
             if(*line >= 'a' && *line <= 'z') *line += 'A'-'a';
 
-            if(strchr(white, *line)) {
+            if(!(*line) || strchr(white, *line)) {
                 if(b != p) {
                     *p = 0;
                     tokens[ntokens++] = b;
                     b = ++p;
                 }
+                if(!(*line)) break;
             } else {
                 *(p++) = *line;
             }
         }
-    } while(*(++line));
+        line++;
+    }
 
     /* assemble */
 
+assemble:
+    //for(i = 0; i < ntokens; i++) printf("%s\n", tokens[i]);
+
     if(!strcmp(tokens[0], "ORG")) {
         if(ntokens != 2) error(nargsError);
-        org = eval(tokens[1]);
+        if(!tryEval(tokens[1], &n))
+            error("failed to evaluate expression");
+        org = n;
+    } else if(!strcmp(tokens[0], "INCLUDE")) {
+        if(ntokens != 2) error(nargsError);
+        if(tokens[1][0] != '"') error(argsError);
+        asmFile(tokens[1]+1);
     } else if(!strcmp(tokens[0], "DB")) {
         if(ntokens == 1) error(nargsError);
         for(i = 1; i < ntokens; i++) {
@@ -190,6 +373,9 @@ void asmLine(char *line) {
             addByte((r1<<4)|r2);
         } else if(a1 == A_NREG && a2 == A_LREG) {
             addByte(0x07);
+            addByte((r1<<4)|r2);
+        } else if(a1 == A_REG && a2 == A_REG) {
+            addByte(0x08);
             addByte((r1<<4)|r2);
         } else error(argsError);
     } else if(!strcmp(tokens[0], "AND")) {
@@ -256,19 +442,34 @@ void asmLine(char *line) {
         a1 = argType(tokens[1], &r1);
         if(a1 != A_REG) error(argsError);
         addByte(0x70|r1);
-    } else if(!strcmp(tokens[0], "-")) {
-        prev = org;
-    } else if(!strcmp(tokens[0], "+")) {
-        resAhead();
+    } else if(!strcmp(tokens[0], "BRA")) {
+        if(ntokens != 2) error(nargsError);
+        addByte(0x2F);
+        addVal(tokens[1], T_REL);
+    } else if(!strcmp(tokens[0], "RET")) {
+        if(ntokens != 1) error(nargsError);
+        addByte(0x4F);
     } else {
-        strcpy(labels[nlabels].name, tokens[0]);
-        labels[nlabels].org = org;
-        nlabels++;
-        resolve();
+        if(!strcmp(tokens[0], "-"))
+            prev = org;
+        else if(!strcmp(tokens[0], "+"))
+            resAhead();
+        else {
+            strcpy(labels[nlabels].name, tokens[0]);
+            labels[nlabels].org = org;
+            nlabels++;
+            resolve();
+        }
+
+        if(ntokens != 1) {
+            for(i = 1; i < ntokens; i++) tokens[i-1] = tokens[i];
+            ntokens--;
+            goto assemble;
+        }
     }
 }
 
-void asmFile(const char *filename) {
+void asmFile(char *filename) {
     FILE *fp;
     unsigned int line;
     char buf[200];
@@ -290,29 +491,50 @@ void asmFile(const char *filename) {
 
     while(!feof(fp)) {
         p = buf;
-        while(!feof(fp) && (c = fgetc(fp)) != '\n')
+        while((c = fgetc(fp)) != '\n' && !feof(fp))
             *(p++) = c;
         *p = 0;
-        if(p = strchr(buf, ";")) *p = 0;
-        line = g_line;
-        asmLine(buf);
-        g_line = line;
-        g_filename = filename;
+        if(p = strchr(buf, ';')) *p = 0;
+        if(buf[0]) {
+            line = g_line;
+            asmLine(buf);
+            g_line = line;
+            g_filename = filename;
+        }
         g_line++;
     }
 
     fclose(fp);
 }
 
-void saveToFile(const char *filename) {
+void saveToFile(char *filename) {
     FILE *fp;
     fp = fopen(filename, "wb");
     if(!fp) {
         printf("failed to save to %s\n", filename);
         exit(1);
     }
-    fwrite(memory, 1, size, fp);
+    fwrite(memory, 1, addr, fp);
     fclose(fp);
+}
+
+void checkUnres() {
+    int i;
+
+    if(!nunres) return;
+
+    printf("unresolved expressions:");
+
+    for(i = 0; i < nunres; i++)
+        printf("%s:%d\t%s\n",
+               unres[i].filename, unres[i].line, unres[i].ex);
+
+    error("unresolved expressions");
+}
+
+void printLabels() {
+    for(int i = 0; i < nlabels; i++)
+        printf("$%.8X %s\n", labels[i].org, labels[i].name);
 }
 
 int main(int argc, char **args) {
@@ -322,7 +544,10 @@ int main(int argc, char **args) {
     }
 
     asmFile(args[1]);
+    checkUnres();
     printf("assembled successfully\n");
     saveToFile(args[2]);
+    printf("wrote %s\n", args[2]);
+    printLabels();
     return 0;
 }
