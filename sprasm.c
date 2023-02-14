@@ -105,7 +105,8 @@ void resAhead() {
             memory[unres[i].addr] = org-unres[i].org;
             break;
         }
-        unres[i--] = unres[--nunres];
+        unres[i] = unres[--nunres];
+        i--;
     }
 }
 
@@ -218,10 +219,11 @@ void resolve() {
             memory[unres[i].addr] = n;
             break;
         case T_REL:
-            memory[unres[i].addr] = n-unres[i].org+1;
+            memory[unres[i].addr] = (char)(n-unres[i].org);
             break;
         }
-        unres[i--] = unres[--nunres];
+        unres[i] = unres[--nunres];
+        i--;
     }
 }
 
@@ -263,6 +265,7 @@ void asmLine(char *line) {
     const char *syntaxError = "syntax error";
     const char *nargsError = "wrong number of args";
     const char *argsError = "wrong combination of args";
+    const char *evalError = "failed to evaluate expression";
     const char *white = " \t,:";
     char *tokens[40];
     int ntokens = 0;
@@ -316,9 +319,7 @@ assemble:
 
     if(!strcmp(tokens[0], "ORG")) {
         if(ntokens != 2) error(nargsError);
-        if(!tryEval(tokens[1], &n))
-            error("failed to evaluate expression");
-        org = n;
+        if(!tryEval(tokens[1], &org)) error(evalError);
     } else if(!strcmp(tokens[0], "INCLUDE")) {
         if(ntokens != 2) error(nargsError);
         if(tokens[1][0] != '"') error(argsError);
@@ -454,6 +455,13 @@ assemble:
     } else if(!strcmp(tokens[0], "RET")) {
         if(ntokens != 1) error(nargsError);
         addByte(0x4F);
+    } else if(!strcmp(tokens[0], "JMP")) {
+        if(ntokens != 2) error(nargsError);
+        addByte(0x1F);
+        addVal(tokens[1], T_WORD);
+    } else if(!strcmp(tokens[0], "=")) {
+        if(ntokens != 2) error(nargsError);
+        if(!number(tokens[1], &labels[nlabels-1].org)) error(evalError);
     } else {
         if(!strcmp(tokens[0], "-"))
             prev = org;
