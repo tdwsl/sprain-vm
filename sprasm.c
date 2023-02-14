@@ -371,6 +371,22 @@ assemble:
         if(a1 != A_REG || a2 != A_REG) error(argsError);
         addByte((r1<<4)|r2);
         addVal(tokens[3], T_REL);
+    } else if(!strcmp(tokens[0], "BGE")) {
+        if(ntokens != 4) error(nargsError);
+        addByte(0x04);
+        a1 = argType(tokens[1], &r1);
+        a2 = argType(tokens[2], &r2);
+        if(a1 != A_REG || a2 != A_REG) error(argsError);
+        addByte((r1<<4)|r2);
+        addVal(tokens[3], T_REL);
+    } else if(!strcmp(tokens[0], "BLT")) {
+        if(ntokens != 4) error(nargsError);
+        addByte(0x05);
+        a1 = argType(tokens[1], &r1);
+        a2 = argType(tokens[2], &r2);
+        if(a1 != A_REG || a2 != A_REG) error(argsError);
+        addByte((r1<<4)|r2);
+        addVal(tokens[3], T_REL);
     } else if(!strcmp(tokens[0], "MOV")) {
         if(ntokens != 3) error(nargsError);
         a1 = argType(tokens[1], &r1);
@@ -379,19 +395,19 @@ assemble:
             addByte(0x10|r1);
             addVal(tokens[2], T_WORD);
         } else if(a1 == A_REG && a2 == A_NREG) {
-            addByte(0x04);
-            addByte((r1<<4)|r2);
-        } else if(a1 == A_NREG && a2 == A_REG) {
-            addByte(0x05);
-            addByte((r1<<4)|r2);
-        } else if(a1 == A_LREG && a2 == A_NREG) {
             addByte(0x06);
             addByte((r1<<4)|r2);
-        } else if(a1 == A_NREG && a2 == A_LREG) {
+        } else if(a1 == A_NREG && a2 == A_REG) {
             addByte(0x07);
             addByte((r1<<4)|r2);
-        } else if(a1 == A_REG && a2 == A_REG) {
+        } else if(a1 == A_LREG && a2 == A_NREG) {
             addByte(0x08);
+            addByte((r1<<4)|r2);
+        } else if(a1 == A_NREG && a2 == A_LREG) {
+            addByte(0x09);
+            addByte((r1<<4)|r2);
+        } else if(a1 == A_REG && a2 == A_REG) {
+            addByte(0x0A);
             addByte((r1<<4)|r2);
         } else error(argsError);
     } else if(!strcmp(tokens[0], "AND")) {
@@ -399,21 +415,21 @@ assemble:
         a1 = argType(tokens[1], &r1);
         a2 = argType(tokens[2], &r2);
         if(a1 != A_REG || a2 != A_REG) error(argsError);
-        addByte(0x09);
+        addByte(0x0B);
         addByte((r1<<4)|r2);
     } else if(!strcmp(tokens[0], "OR")) {
         if(ntokens != 3) error(nargsError);
         a1 = argType(tokens[1], &r1);
         a2 = argType(tokens[2], &r2);
         if(a1 != A_REG || a2 != A_REG) error(argsError);
-        addByte(0x0A);
+        addByte(0x0C);
         addByte((r1<<4)|r2);
     } else if(!strcmp(tokens[0], "XOR")) {
         if(ntokens != 3) error(nargsError);
         a1 = argType(tokens[1], &r1);
         a2 = argType(tokens[2], &r2);
         if(a1 != A_REG || a2 != A_REG) error(argsError);
-        addByte(0x0B);
+        addByte(0x0D);
         addByte((r1<<4)|r2);
     } else if(!strcmp(tokens[0], "ADD")) {
         if(ntokens != 3) error(nargsError);
@@ -423,7 +439,7 @@ assemble:
             addByte(0x20|r1);
             addVal(tokens[2], T_BYTE);
         } else if(a1 == A_REG && a2 == A_REG) {
-            addByte(0x0C);
+            addByte(0x0E);
             addByte((r1<<4)|r2);
         } else error(argsError);
     } else if(!strcmp(tokens[0], "SUB")) {
@@ -431,7 +447,7 @@ assemble:
         a1 = argType(tokens[1], &r1);
         a2 = argType(tokens[2], &r2);
         if(a1 != A_REG || a2 != A_REG) error(argsError);
-        addByte(0x0D);
+        addByte(0x0F);
         addByte((r1<<4)|r2);
     } else if(!strcmp(tokens[0], "PUSH")) {
         if(ntokens != 2) error(nargsError);

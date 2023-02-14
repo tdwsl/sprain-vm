@@ -48,42 +48,54 @@ unsigned char run() {
                     r_regs[15] += (char)memory[r_regs[15]-1];
                 break;
             case 0x04:
-                ins = memory[r_regs[15]++];
-                r_regs[ins>>4] = getm(r_regs[ins&0x0f]);
+                ins = memory[r_regs[15]];
+                r_regs[15] += 2;
+                if(!((r_regs[ins>>4] - r_regs[ins&0x0f]) & 0x80000000))
+                    r_regs[15] += (char)memory[r_regs[15]-1];
                 break;
             case 0x05:
-                ins = memory[r_regs[15]++];
-                setm(r_regs[ins>>4], r_regs[ins&0x0f]);
+                ins = memory[r_regs[15]];
+                r_regs[15] += 2;
+                if((r_regs[ins>>4] - r_regs[ins&0x0f]) & 0x80000000)
+                    r_regs[15] += (char)memory[r_regs[15]-1];
                 break;
             case 0x06:
                 ins = memory[r_regs[15]++];
-                *(unsigned char*)&r_regs[ins>>4] = memory[r_regs[ins&0x0f]];
+                r_regs[ins>>4] = getm(r_regs[ins&0x0f]);
                 break;
             case 0x07:
-                    ins = memory[r_regs[15]++];
-                memory[r_regs[ins>>4]] = memory[r_regs[ins&0x0f]];
+                ins = memory[r_regs[15]++];
+                setm(r_regs[ins>>4], r_regs[ins&0x0f]);
                 break;
             case 0x08:
                 ins = memory[r_regs[15]++];
-                r_regs[ins>>4] = r_regs[ins&0x0f];
+                *(unsigned char*)&r_regs[ins>>4] = memory[r_regs[ins&0x0f]];
                 break;
             case 0x09:
-                ins = memory[r_regs[15]++];
-                r_regs[ins>>4] &= r_regs[ins&0x0f];
+                    ins = memory[r_regs[15]++];
+                memory[r_regs[ins>>4]] = memory[r_regs[ins&0x0f]];
                 break;
             case 0x0a:
                 ins = memory[r_regs[15]++];
-                r_regs[ins>>4] |= r_regs[ins&0x0f];
+                r_regs[ins>>4] = r_regs[ins&0x0f];
                 break;
             case 0x0b:
                 ins = memory[r_regs[15]++];
-                r_regs[ins>>4] ^= r_regs[ins&0x0f];
+                r_regs[ins>>4] &= r_regs[ins&0x0f];
                 break;
             case 0x0c:
                 ins = memory[r_regs[15]++];
-                r_regs[ins>>4] += r_regs[ins&0x0f];
+                r_regs[ins>>4] |= r_regs[ins&0x0f];
                 break;
             case 0x0d:
+                ins = memory[r_regs[15]++];
+                r_regs[ins>>4] ^= r_regs[ins&0x0f];
+                break;
+            case 0x0e:
+                ins = memory[r_regs[15]++];
+                r_regs[ins>>4] += r_regs[ins&0x0f];
+                break;
+            case 0x0f:
                 ins = memory[r_regs[15]++];
                 r_regs[ins>>4] -= r_regs[ins&0x0f];
                 break;

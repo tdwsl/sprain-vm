@@ -5,6 +5,10 @@
 
   include "interrupts.inc"
 
+  mov r1,10
+  mov r2,-1
+  blt r1,r2 +
+
   mov r3,vals
   - mov r1,(r3)
     beq r1,zero +
@@ -18,7 +22,7 @@
   int INT_Quit
   
 vals:
-  dw 20,5, 10,3, 100,9, 49,7, 0
+  dw 20,5, 10,3, 100,9, 49,5, 0
 
 printDiv: ; print r1/r2
   push r1
@@ -49,21 +53,14 @@ msg2: db 9,"r ",0
 
 div: ; div r1 by r2
   push r3
-  push r4
-  push r5
-  mov r5,zero
-  - mov r3,r1
-    sub r3,r2
-    mov r4,$80000000
-    and r4,r3
-    bne r4,zero +
-    mov r1,r3
-    add r5,1
+  mov r3,zero
+  - blt r1,r2 +
+    sub r1,r2
+    add r3,1
     bra -
-+ mov r2,r1
-  mov r1,r5
-  pop r5
-  pop r4
+  +
+  mov r2,r1
+  mov r1,r3
   pop r3
   ret
 

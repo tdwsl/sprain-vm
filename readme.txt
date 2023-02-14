@@ -35,9 +35,9 @@ The sizes of instructions according to their operands are:
            0C              0D              0E              0F
 
 00   int I8          call I32        beq R,R I8      bne R,R I8
-       mov R,(R)       mov (R),R       mol R,(R)       mol (R),R
-         mov R,R         and R,R         or R,R          xor R,R
-           add R,R         sub R,R         --              --
+       bge R,R I8      blt R,R I8      mov R,(R)       mov (R),R
+         mov L,(R)       mov (R),L       mov R,R         and R,R
+           or R,R          xor R,R         add R,R         sub R,R
 10   --              mov r1,I32      mov r2,I32      mov r3,I32
        mov r4,I32      mov r5,I32      mov r6,I32      mov r7,I32
          mov r8,I32      mov r9,I32      mov r10,I32     mov r11,I32
