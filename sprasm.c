@@ -102,7 +102,7 @@ void resAhead() {
             break;
         case T_BYTE:
         case T_REL:
-            memory[unres[i].addr] = org-(unres[i].org+1);
+            memory[unres[i].addr] = org-unres[i].org;
             break;
         }
         unres[i--] = unres[--nunres];
@@ -218,7 +218,7 @@ void resolve() {
             memory[unres[i].addr] = n;
             break;
         case T_REL:
-            memory[unres[i].addr] = n-(unres[i].org+1);
+            memory[unres[i].addr] = n-unres[i].org+1;
             break;
         }
         unres[i--] = unres[--nunres];
@@ -272,6 +272,9 @@ void asmLine(char *line) {
     int i, j;
     uint32_t n;
     uint32_t r1, r2;
+    uint32_t oa;
+
+    oa = addr;
 
     /* tokenize */
 
@@ -306,8 +309,10 @@ void asmLine(char *line) {
 
     /* assemble */
 
+    /*for(i = 0; i < ntokens; i++) printf("%s ", tokens[i]);
+    printf("\n");*/
+
 assemble:
-    //for(i = 0; i < ntokens; i++) printf("%s\n", tokens[i]);
 
     if(!strcmp(tokens[0], "ORG")) {
         if(ntokens != 2) error(nargsError);
@@ -345,7 +350,7 @@ assemble:
         a1 = argType(tokens[1], &r1);
         a2 = argType(tokens[2], &r2);
         if(a1 != A_REG || a2 != A_REG) error(argsError);
-        addByte((a1<<4)|a2);
+        addByte((r1<<4)|r2);
         addVal(tokens[3], T_REL);
     } else if(!strcmp(tokens[0], "BNE")) {
         if(ntokens != 4) error(nargsError);
@@ -353,7 +358,7 @@ assemble:
         a1 = argType(tokens[1], &r1);
         a2 = argType(tokens[2], &r2);
         if(a1 != A_REG || a2 != A_REG) error(argsError);
-        addByte((a1<<4)|a2);
+        addByte((r1<<4)|r2);
         addVal(tokens[3], T_REL);
     } else if(!strcmp(tokens[0], "MOV")) {
         if(ntokens != 3) error(nargsError);
@@ -467,6 +472,9 @@ assemble:
             goto assemble;
         }
     }
+
+    /*while(oa < addr) printf("%.2X ", memory[oa++]);
+    printf("\n");*/
 }
 
 void asmFile(char *filename) {
