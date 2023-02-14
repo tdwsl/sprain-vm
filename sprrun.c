@@ -39,10 +39,12 @@ int main(int argc, char **args) {
                 r_regs[1] = 0xffffffff;
                 break;
             }
-            if(strlen(args[r_regs[1]+1]) >= r_regs[2])
+            if(strlen(args[r_regs[1]+1]) >= r_regs[2]) {
                 r_regs[1] = 0xffffffff;
-            else
+            } else {
                 strcpy((char*)&memory[r_regs[3]], args[r_regs[1]+1]);
+                r_regs[1] = 0;
+            }
             r_regs[2] = strlen(args[r_regs[1]]);
             break;
         case 0x10: // FOpen
@@ -70,8 +72,8 @@ int main(int argc, char **args) {
             r_regs[1] = fread(memory+r_regs[2], r_regs[1], 1, fp);
             break;
         case 0x16: // FEOF
-            if(feof(fp)) r_regs[0] = 0xffffffff;
-            else r_regs[0] = 0;
+            if(feof(fp)) r_regs[1] = 0xffffffff;
+            else r_regs[1] = 0;
             break;
         case 0x69: // ToggleDebug
             debug = !debug;

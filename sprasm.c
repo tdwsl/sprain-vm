@@ -102,7 +102,7 @@ void resAhead() {
             break;
         case T_BYTE:
         case T_REL:
-            memory[unres[i].addr] = org-unres[i].org;
+            memory[unres[i].addr] = org-unres[i].org-1;
             break;
         }
         unres[i] = unres[--nunres];
@@ -219,7 +219,7 @@ void resolve() {
             memory[unres[i].addr] = n;
             break;
         case T_REL:
-            memory[unres[i].addr] = (char)(n-unres[i].org);
+            memory[unres[i].addr] = (char)(n-unres[i].org-1);
             break;
         }
         unres[i] = unres[--nunres];

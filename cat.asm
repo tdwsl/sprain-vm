@@ -5,10 +5,10 @@
 
   include "interrupts.inc"
 
-  int INT_ToggleDebug
+  ;int INT_ToggleDebug
   int INT_Argc
   add r1,-2
-  beq r1,zero l0
+  beq r1,zero +
 
   mov r2,errMsg1
   call printStr
@@ -45,9 +45,11 @@ errMsg3:
   db "failed to open file",10,0
 
 catFile:
-  - int INT_FEOF
+  - int INT_FReadChar
+    mov r2,r1
+    int INT_FEOF
     bne r1,zero +
-    int INT_FReadChar
+    mov r1,r2
     int INT_PrintChar
     bra -
 + ret

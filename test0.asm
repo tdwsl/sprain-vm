@@ -5,6 +5,8 @@
 
   mov r2,helloMsg
   call printStr
+  mov r2,helloMsg
+  call printStr
   int INT_Quit
 
 helloMsg:
