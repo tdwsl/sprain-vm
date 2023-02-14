@@ -1,8 +1,7 @@
-#include "sprvm.h"
 #include <stdio.h>
 #include <stdint.h>
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
 
 enum {
     T_WORD,
@@ -10,431 +9,299 @@ enum {
     T_REL,
 };
 
+enum {
+    A_REG,
+    A_LOW,
+    A_NREG,
+    A_OTHER,
+};
+
 struct label {
-    char name[30];
+    char name[20];
     uint32_t org;
 };
 
 struct unres {
-    char type;
-    char base[30];
+    char ex[35];
     uint32_t addr, org;
-    uint32_t off;
-};
-
-struct ahead {
     char type;
-    uint32_t addr, org;
-    uint32_t off;
 };
 
-struct fileInfo {
-    char name[40];
-    int line;
+unsigned char memory[16777316];
+
+const char *regs[] = {
+    "ZERO", "R1", "R2", "R3", "R4", "R5", "R6", "R7",
+    "R8", "R9", "R10", "R11", "R12", "R13", "RSP", "RPC",
 };
 
-struct ins {
-    char str[10];
-    char type;
-    unsigned char opc;
+const char *nregs[] = {
+    "(ZERO)", "(R1)", "(R2)", "(R3)", "(R4)", "(R5)", "(R6)", "(R7)",
+    "(R8)", "(R9)", "(R10)", "(R11)", "(R12)", "(R13)", "(RSP)", "(RPC)",
 };
 
+const char *lregs[] = {
+    "LERO", "L1", "L2", "L3", "L4", "L5", "L6", "L7",
+    "L8", "L9", "L10", "L11", "L12", "L13", "LSP", "LPC",
+};
+
+unsigned int g_line;
+const char *g_filename = 0;
+
+uint32_t addr = 0;
 uint32_t org = 0;
 uint32_t prev = 0;
-uint32_t size = 0;
 
-struct fileInfo infoStack[20];
-struct fileInfo *info = infoStack-1;
-
-struct unres unres[200];
+struct unres unres[100];
 int nunres = 0;
-
-struct ahead ahead[100];
-int nahead = 0;
-
-struct label labels[400];
-int nlabels = 0;
-
-const char *forbid = "*/'£^&[]=#?<>{}\\|";
-const char *syntaxError = "syntax error";
+struct label label[200];
+int nlabel = 0;
 
 void error(const char *err) {
-    printf("error on line %d in %s: %s\n",
-           info->line, info->name, err);
+    printf("error at line %d in %s: %s\n", g_line, g_filename, err);
     exit(1);
 }
 
-void capitalise(char *s) {
-    do {
-        if(*s >= 'a' && *s <= 'z')
-            *s += 'A'-'a';
-    } while(*(++s));
-}
-
-struct label *findLabel(const char *s) {
-    int i;
-    for(i = 0; i < nlabels; i++)
-        if(!strcmp(labels[i].name, s)) return &labels[i];
-    return 0;
-}
-
-void resAhead() {
-    int i;
-    for(i = 0; i < nahead; i++) {
-        ahead[i].off += org;
-        switch(ahead[i].type) {
-        case T_WORD:
-            setm(ahead[i].addr, ahead[i].off);
-            break;
-        case T_BYTE:
-            memory[ahead[i].addr] = ahead[i].off;
-            break;
-        case T_REL:
-            memory[ahead[i].addr] = (char)(org-ahead[i].off);
-            break;
-        }
+char argType(char *s, int *np) {
+    int i, n;
+    char t;
+    n = -1;
+    t = A_OTHER;
+    for(i = 0; i < 16; i++) {
+        if(!strcmp(regs[i], s)) { n = i; t = A_REG; break; }
+        if(!strcmp(lregs[i], s)) { n = i; t = A_LREG; break; }
+        if(!strcmp(nregs[i], s)) { n = i; t = A_NREG; break; }
     }
-    nahead = 0;
-}
-
-int number(const char *s, uint32_t *n) {
-    uint32_t base;
-
-    if(*s == '$' || *s == '&') { base = 16; s++; }
-    else if(*s == '%') { base = 2; s++; }
-    else base = 10;
-
-    if(*s == 0) return 0;
-
-    *n = 0;
-
-    do {
-        if(base <= 10) {
-            if(*s >= '0' && *s < '0'+base-1)
-                *n = *n * base + *s - '0';
-            else return 0;
-        } else {
-            if(*s >= '0' && *s <= '9')
-                *n = *n * base + *s - '0';
-            else if(*s >= 'A' && *s <= 'A'+base-11)
-                *n = *n * base + *s - 'A' + 10;
-            else return 0;
-        }
-    } while(*(++s));
-
-    return 1;
-}
-
-uint32_t eval(char *ex) {
-    uint32_t n, t;
-    char buf[200];
-    char *tokens[20];
-    int ntokens = 0;
-    const char *delim = "+-";
-    const char *failMsg = "failed to resolve expression";
-    char *p = buf;
-    char *b = buf;
-    int i;
-    char fl;
-    struct label *lbl;
-
-    do {
-        if(*ex <= ' ') {
-            if(p != b) {
-                *p = 0;
-                tokens[ntokens++] = b;
-                b = ++p;
-            }
-        } else if(strchr(delim, *ex)) {
-            if(p != b) {
-                *p = 0;
-                tokens[ntokens++] = b;
-            }
-            *(++p) = *ex;
-            *(++p) = 0;
-            tokens[ntokens++] = p-2;
-            b = ++p;
-        } else if(strchr(forbid, *ex)) {
-            sprintf(buf, "forbidden character %c", *ex);
-            error(buf);
-        } else {
-            *(p++) = *ex;
-        }
-    } while(*(++ex));
-
-    if(ntokens == 0) error(failMsg);
-    else if(ntokens == 1 && !strcmp(tokens[0], "-")) return prev;
-
-    t = 0;
-    fl = 0;
-    for(i = 0; i < ntokens; i++) {
-        if(!strcmp(tokens[i], "+")) fl ^= 1;
-        else if(!strcmp(tokens[i], "-")) fl |= 1;
-        else {
-            if(!number(tokens[i], &n)) {
-                if(!(lbl = findLabel(tokens[i])))
-                    error(failMsg);
-            }
-            if(fl & 1) t -= n;
-            else t += n;
-            fl |= 2;
-        }
-    }
-
-    if(!(fl & 2))
-        error(failMsg);
-
+    if(np) *np = n;
     return t;
 }
 
-void resolve() {
-    int i;
-    struct label *lbl;
-
-    for(i = 0; i < nunres; i++) {
-        lbl = findLabel(unres[i].base);
-        if(!lbl) continue;
-
-        unres[i].off += lbl->org;
-        switch(unres[i].type) {
-        case T_WORD:
-            setm(unres[i].addr, unres[i].off);
-            break;
-        case T_BYTE:
-            memory[unres[i].addr] = unres[i].off;
-            break;
-        case T_REL:
-            memory[unres[i].addr] = (char)(org-unres[i].off);
-            break;
-        }
-
-        unres[i] = unres[--nunres];
-        i--;
-    }
+void addByte(char b) {
+    memory[addr++] = b;
+    org++;
 }
 
-void addValue(char *line, char type) {
-    char sz;
-    char *p;
+void addWord(uint32_t w) {
+    *(uint32_t*)&memory[addr] = w;
+    addr += 4;
+    org += 4;
+}
 
-    capitalise(line);
+void addVal(char *ex, char type) {
+}
 
-    if(type == T_WORD) {
-        sz = 4;
-        size += 4;
-        org += 4;
-    } else {
-        sz = 1;
-        size++;
-        org++;
-    }
+void asmLine(char *line) {
+    const char *syntaxError = "syntax error";
+    const char *nargsError = "wrong number of args";
+    const char *argsError = "wrong combination of args";
+    const char *white = " \t,:";
+    char *tokens[40];
+    int ntokens = 0;
+    char buf[200];
+    char *p, *b, *s;
+    char a1, a2;
+    int i, j;
 
-    if(!strcmp(line, "-")) {
-        switch(type) {
-        case T_WORD:
-            setm(size-4, prev);
-            break;
-        case T_BYTE:
-            memory[size-1] = prev;
-            break;
-        case T_REL:
-            memory[size-1] = (char)(prev-org);
-            break;
-        }
-    } else if(!strcmp(line, "+")) {
-        ahead[nahead].addr = size-sz;
-        ahead[nahead].org = org - (type != T_REL) ? sz : 0;
-        ahead[nahead].type = type;
-        nahead++;
-    } else {
-        if(p = strstr(line, " \n\t")) {
-            *(p++) = 0;
-            unres[nunres].off = eval(p);
-        } else if(p = strstr(line, "+-")) {
-            unres[nunres].off = eval(p);
+    /* tokenize */
+
+    b = buf;
+    p = buf;
+
+    do {
+        if(*line == '"') {
+            if(b != p) error(syntaxError);
+            s = strchr(line+1, '"');
+            if(!s) error("unterminated quote");
+            while(line < s) *(p++) = *(line++);
             *p = 0;
-        } else
-            unres[nunres].off = 0;
-        strcpy(unres[nunres].base, line);
-        unres[nunres].addr = size-sz;
-        unres[nunres].org = org-sz;
-        unres[nunres].type = type;
-        nunres++;
+            tokens[ntokens++] = b;
+            b = ++p;
+        } else {
+            if(*line >= 'a' && *line <= 'z') *line += 'A'-'a';
+
+            if(strchr(white, *line)) {
+                if(b != p) {
+                    *p = 0;
+                    tokens[ntokens++] = b;
+                    b = ++p;
+                }
+            } else {
+                *(p++) = *line;
+            }
+        }
+    } while(*(++line));
+
+    /* assemble */
+
+    if(!strcmp(tokens[0], "ORG")) {
+        if(ntokens != 2) error(nargsError);
+        org = eval(tokens[1]);
+    } else if(!strcmp(tokens[0], "DB")) {
+        if(ntokens == 1) error(nargsError);
+        for(i = 1; i < ntokens; i++) {
+            if(tokens[i][0] == '"') {
+                for(j = 1; tokens[i][j]; j++)
+                    addByte(tokens[i][j]);
+            } else
+                addVal(tokens[i], T_BYTE);
+        }
+    } else if(!strcmp(tokens[0], "DW")) {
+        if(ntokens == 1) error(nargsError);
+        for(i = 1; i < ntokens; i++)
+            addVal(tokens[i], T_WORD);
+    } else if(!strcmp(tokens[0], "INT")) {
+        if(ntokens != 2) error(nargsError);
+        addByte(0x00);
+        addVal(tokens[1], T_BYTE);
+    } else if(!strcmp(tokens[0], "CALL")) {
+        if(ntokens != 2) error(nargsError);
+        addByte(0x01);
+        addVal(tokens[1], T_WORD);
+    } else if(!strcmp(tokens[0], "BEQ")) {
+        if(ntokens != 4) error(nargsError);
+        addByte(0x02);
+        a1 = argType(tokens[1], &r1);
+        a2 = argType(tokens[2], &r2);
+        if(a1 != A_REG || a2 != A_REG) error(argsError);
+        addByte((a1<<4)|a2);
+        addVal(tokens[3], T_REL);
+    } else if(!strcmp(tokens[0], "BNE")) {
+        if(ntokens != 4) error(nargsError);
+        addByte(0x03);
+        a1 = argType(tokens[1], &r1);
+        a2 = argType(tokens[2], &r2);
+        if(a1 != A_REG || a2 != A_REG) error(argsError);
+        addByte((a1<<4)|a2);
+        addVal(tokens[3], T_REL);
+    } else if(!strcmp(tokens[0], "MOV")) {
+        if(ntokens != 3) error(nargsError);
+        a1 = argType(tokens[1], &r1);
+        a2 = argType(tokens[2], &r2);
+        if(a1 == A_REG && a2 == A_OTHER) {
+            addByte(0x10|r1);
+            addVal(tokens[2], T_WORD);
+        } else if(a1 == A_REG && a2 == A_NREG) {
+            addByte(0x04);
+            addByte((r1<<4)|r2);
+        } else if(a1 == A_NREG && a2 == A_REG) {
+            addByte(0x05);
+            addByte((r1<<4)|r2);
+        } else if(a1 == A_LREG && a2 == A_NREG) {
+            addByte(0x06);
+            addByte((r1<<4)|r2);
+        } else if(a1 == A_NREG && a2 == A_LREG) {
+            addByte(0x07);
+            addByte((r1<<4)|r2);
+        } else error(argsError);
+    } else if(!strcmp(tokens[0], "AND")) {
+        if(ntokens != 3) error(nargsError);
+        a1 = argType(tokens[1], &r1);
+        a2 = argType(tokens[2], &r2);
+        if(a1 != A_REG || a2 != A_REG) error(argsError);
+        addByte(0x09);
+        addByte((r1<<4)|r2);
+    } else if(!strcmp(tokens[0], "OR")) {
+        if(ntokens != 3) error(nargsError);
+        a1 = argType(tokens[1], &r1);
+        a2 = argType(tokens[2], &r2);
+        if(a1 != A_REG || a2 != A_REG) error(argsError);
+        addByte(0x0A);
+        addByte((r1<<4)|r2);
+    } else if(!strcmp(tokens[0], "XOR")) {
+        if(ntokens != 3) error(nargsError);
+        a1 = argType(tokens[1], &r1);
+        a2 = argType(tokens[2], &r2);
+        if(a1 != A_REG || a2 != A_REG) error(argsError);
+        addByte(0x0B);
+        addByte((r1<<4)|r2);
+    } else if(!strcmp(tokens[0], "ADD")) {
+        if(ntokens != 3) error(nargsError);
+        a1 = argType(tokens[1], &r1);
+        a2 = argType(tokens[2], &r2);
+        if(a1 == A_REG && a2 == A_OTHER) {
+            addByte(0x20|r1);
+            addVal(tokens[2], T_BYTE);
+        } else if(a1 == A_REG && a2 == A_REG) {
+            addByte(0x0C);
+            addByte((r1<<4)|r2);
+        } else error(argsError);
+    } else if(!strcmp(tokens[0], "SUB")) {
+        if(ntokens != 3) error(nargsError);
+        a1 = argType(tokens[1], &r1);
+        a2 = argType(tokens[2], &r2);
+        if(a1 != A_REG || a2 != A_REG) error(argsError);
+        addByte(0x0D);
+        addByte((r1<<4)|r2);
+    } else if(!strcmp(tokens[0], "PUSH")) {
+        if(ntokens != 2) error(nargsError);
+        a1 = argType(tokens[1], &r1);
+        if(a1 != A_REG) error(argsError);
+        addByte(0x30|r1);
+    } else if(!strcmp(tokens[0], "POP")) {
+        if(ntokens != 2) error(nargsError);
+        a1 = argType(tokens[1], &r1);
+        if(a1 != A_REG) error(argsError);
+        addByte(0x40|r1);
+    } else if(!strcmp(tokens[0], "INV")) {
+        if(ntokens != 2) error(nargsError);
+        a1 = argType(tokens[1], &r1);
+        if(a1 != A_REG) error(argsError);
+        addByte(0x50|r1);
+    } else if(!strcmp(tokens[0], "SHR")) {
+        if(ntokens != 2) error(nargsError);
+        a1 = argType(tokens[1], &r1);
+        if(a1 != A_REG) error(argsError);
+        addByte(0x60|r1);
+    } else if(!strcmp(tokens[0], "SHL")) {
+        if(ntokens != 2) error(nargsError);
+        a1 = argType(tokens[1], &r1);
+        if(a1 != A_REG) error(argsError);
+        addByte(0x70|r1);
+    } else if(!strcmp(tokens[0], "-")) {
+        prev = org;
+    } else if(!strcmp(tokens[0], "+")) {
+        resAhead();
+    } else {
+        strcpy(labels[nlabels].name, tokens[0]);
+        labels[nlabels].org = org;
+        nlabels++;
         resolve();
     }
 }
 
-void addByte(unsigned char v) {
-    memory[size] = v;
-    size++;
-    org++;
-}
-
-void addWord(uint32_t v) {
-    setm(size, v);
-    size += 4;
-    org += 4;
-}
-
-void addInt(uint32_t v, char type) {
-    if(type == T_WORD) addWord(v);
-    else addByte(v);
-}
-
-void asmDB(char *line, char type) {
-    char *p = line;
-    char buf[20];
-
-    do {
-        if(*p == '"') {
-            if(p-1 != line) error(syntaxError);
-            p = strchr(p+1, '"');
-            if(!p) error("unterminated quote");
-            while(line < p)
-                addInt(*(line++), type);
-            line = p;
-        } else if(*p == ',') {
-            if(p-1 == line) error(syntaxError);
-            *p = 0;
-            addValue(line, type);
-            line = p;
-        } else {
-            if(p-1 == line && *p <= ' ') line = p;
-        }
-    } while(*(++p));
-
-    if(p-1 != line)
-        addValue(line, type);
-}
-
-int isInstruction(char *s) {
-    const char *instructions[] = {
-        "INT", "CALL", "BNE", "BEQ", "MOV", "MOL", "AND", "OR",
-        "XOR", "ADD", "SUB", "SHL", "SHR", "INV", "PUSH", "POP",
-        0,
-    };
-    int i;
-    for(i = 0; instructions[i]; i++)
-        if(!strcmp(instructions[i], s)) return 1;
-    return 0;
-}
-
-void strip(char **s) {
-    char *p;
-    while(*(*s) && *(*s) <= ' ') (*s)++;
-    if(*(*s) == 0) return;
-    p = (*s)+strlen(*s)-1;
-    while(*p <= ' ') p--;
-    *(p+1) = 0;
-}
-
-int regn(const char *s) {
-    int i;
-    const char *regs[] = {
-        "ZERO", "R1", "R2", "R3", "R4", "R5", "R6", "R7",
-        "R8", "R9", "R10", "R11", "R12", "R13", "RSP", "RPC",
-    };
-    for(i = 0; i < 16; i++) 
-        if(!strcmp(regs[i], s)) return i;
-    return -1;
-}
-
-void asmI8(unsigned char opc, char *arg) {
-    addByte(opc);
-    addValue(arg, T_BYTE);
-}
-
-void asmI32(unsigned char opc, char *arg) {
-    addByte(opc);
-    addValue(arg, T_WORD);
-}
-
-void asmR(unsigned char opc, char *arg) {
-    int r;
-    strip(&arg);
-    if((r = regn(arg)) == -1)
-        error("invalid register");
-    opc |= r;
-    addByte(opc);
-}
-
-void asmR8(unsigned char opc, char *arg) {
-    addByte(opc);
-    addValue(arg, T_REL);
-}
-
-void asmLine(char *line) {
-    char *p, *arg;
-
-    printf("%s\n", line);
-
-    if(p = strchr(line, ':')) {
-        *p = 0;
-        asmLine(p+1);
-    }
-
-    while(*line && *line <= ' ') line++;
-    if(*line == 0) return;
-
-    for(p = line; *p && *p > ' '; p++);
-    if(*p) {
-        *(p++) = 0;
-        arg = p;
-    } else arg = 0;
-
-    capitalise(line);
-
-    if(!strcmp(line, "-")) {
-        prev = org;
-        if(arg) asmLine(arg);
-    } else if(!strcmp(line, "+")) {
-        resAhead();
-    } else if(!strcmp(line, "DB")) {
-        asmDB(arg, T_BYTE);
-    } else if(!strcmp(line, "DW")) {
-        asmDB(arg, T_WORD);
-    } else if(!strcmp(line, "ORG")) {
-        org = eval(arg);
-    } else if(isInstruction(line)) {
-        if(!strcmp(line, "BRA"))
-            asmR8(0x2f, arg);
-        else if(!strcmp(line, "INT"))
-            asmI8(0x00, arg);
-    } else {
-        labels[nlabels].org = org;
-        strcpy(labels[nlabels].name, line);
-        if(arg) asmLine(arg);
-    }
-}
-
 void asmFile(const char *filename) {
-    char buf[200];
     FILE *fp;
+    unsigned int line;
+    char buf[200];
     char *p;
-
-    info++;
-    strcpy(info->name, filename);
-    info->line = 1;
+    char c;
 
     fp = fopen(filename, "r");
     if(!fp) {
-        if(info != infoStack) {
-            printf("error on line %d in %s:\n  ",
-                   (info-1)->line, (info-1)->name);
-        }
-        printf("failed to open %s\n", info->name);
+        if(g_filename)
+            printf("error on line %d in %s:\n  failed to open %s\n",
+                   g_line, g_filename, filename);
+        else
+            printf("error: failed to open %s\n", filename);
         exit(1);
     }
 
-    for(;;) {
-        for(p = buf; (*p = fgetc(fp)) != '\n' && !feof(fp); p++);
-        if(feof(fp)) p++;
+    g_filename = filename;
+    g_line = 1;
+
+    while(!feof(fp)) {
+        p = buf;
+        while(!feof(fp) && (c = fgetc(fp)) != '\n')
+            *(p++) = c;
         *p = 0;
-        p = strchr(buf, ';');
-        if(p) *p = ';';
+        if(p = strchr(buf, ";")) *p = 0;
+        line = g_line;
         asmLine(buf);
-        info->line++;
+        g_line = line;
+        g_filename = filename;
+        g_line++;
     }
+
+    fclose(fp);
 }
 
 void saveToFile(const char *filename) {
