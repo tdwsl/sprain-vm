@@ -154,13 +154,29 @@ int number(char *s, uint32_t *n) {
     return 1;
 }
 
+int evalVal(char *val, uint32_t *n) {
+    const char *charError = "invalid char";
+    struct label *lbl;
+
+    if(!number(val, n)) {
+        lbl = findLabel(val);
+        if(!lbl) {
+            if(val[0] == '\'') {
+                if(val[1] == 0) error(charError);
+                if(val[2] != '\'') error(charError);
+                *n = val[1];
+            } else return 0;
+        } else *n = lbl->org;
+    }
+    return 1;
+}
+
 int tryEval(char *ex, uint32_t *n) {
     char *vals[20];
     char ops[20];
     char *p, *b;
     int nvals = 0, nops = 0;
     const char *exError = "invalid expression";
-    struct label *lbl;
     uint32_t m;
     int i;
 
@@ -180,18 +196,10 @@ int tryEval(char *ex, uint32_t *n) {
 
     if(nops != nvals-1) error(exError);
 
-    if(!number(vals[0], n)) {
-        lbl = findLabel(vals[0]);
-        if(!lbl) return 0;
-        *n = lbl->org;
-    }
+    if(!evalVal(vals[0], n)) return 0;
 
     for(i = 0; i < nops; i++) {
-        if(!number(vals[i+1], &m)) {
-            lbl = findLabel(vals[i+1]);
-            if(!lbl) return 0;
-            m = lbl->org;
-        }
+        if(!evalVal(vals[i+1], &m)) return 0;
         switch(ops[i]) {
         case '+':
             *n += m;
@@ -208,9 +216,11 @@ int tryEval(char *ex, uint32_t *n) {
 void resolve() {
     int i;
     uint32_t n;
+
     for(i = 0; i < nunres; i++) {
         if(!strcmp(unres[i].ex, "+")) continue;
         if(!tryEval(unres[i].ex, &n)) continue;
+
         switch(unres[i].type) {
         case T_WORD:
             setWord(unres[i].addr, n);
@@ -439,15 +449,17 @@ assemble:
         if(a1 != A_REG) error(argsError);
         addByte(0x50|r1);
     } else if(!strcmp(tokens[0], "SHR")) {
-        if(ntokens != 2) error(nargsError);
+        if(ntokens != 3) error(nargsError);
         a1 = argType(tokens[1], &r1);
         if(a1 != A_REG) error(argsError);
         addByte(0x60|r1);
+        addVal(tokens[2], T_BYTE);
     } else if(!strcmp(tokens[0], "SHL")) {
-        if(ntokens != 2) error(nargsError);
+        if(ntokens != 3) error(nargsError);
         a1 = argType(tokens[1], &r1);
         if(a1 != A_REG) error(argsError);
         addByte(0x70|r1);
+        addVal(tokens[2], T_BYTE);
     } else if(!strcmp(tokens[0], "BRA")) {
         if(ntokens != 2) error(nargsError);
         addByte(0x2F);
@@ -541,7 +553,7 @@ void checkUnres() {
 
     if(!nunres) return;
 
-    printf("unresolved expressions:");
+    printf("unresolved expressions:\n");
 
     for(i = 0; i < nunres; i++)
         printf("%s:%d\t%s\n",

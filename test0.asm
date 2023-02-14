@@ -1,10 +1,10 @@
+; print hello world
+
   org $00001000-4
   dw $00001000
 
   include "interrupts.inc"
 
-  mov r2,helloMsg
-  call printStr
   mov r2,helloMsg
   call printStr
   int INT_Quit
