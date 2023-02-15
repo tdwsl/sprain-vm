@@ -1,4 +1,4 @@
-; native assembler for sprain vm
+; native assembler for sprain vm (wip)
 
   org $1004-4
   dw $1004
@@ -72,12 +72,6 @@ asmFile:
   ret
 
 asmLine:
-  ;mov r2,lineBuf
-  ;call printStr
-  ;mov r1,10
-  ;int INT_PrintChar
-  ;ret
-
   ; comment
   mov r2,lineBuf
   mov r1,';'
@@ -108,6 +102,11 @@ asmLine:
       add r3,1
       bra -
     .nowhite:
+    mov r2,r1
+    add r2,-34 ; "
+    bne r2,zero +
+      ;;
+    +
     mov (r5),l1
     add r5,1
     add r3,1
