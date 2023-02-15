@@ -9,7 +9,7 @@
   mov r2,-1
   blt r1,r2 +
 
-  mov r3,vals
+  mov r3,.vals
   - mov r1,(r3)
     beq r1,zero +
     add r3,4
@@ -21,7 +21,7 @@
 
   int INT_Quit
   
-vals:
+.vals:
   dw 20,5, 10,3, 100,9, 49,5, 0
 
 printDiv: ; print r1/r2
@@ -29,27 +29,27 @@ printDiv: ; print r1/r2
   push r2
   push r2
   call printNum
-  mov r2,msg0
+  mov r2,.msg0
   call printStr
   pop r1
   call printNum
-  mov r2,msg1
+  mov r2,.msg1
   call printStr
   pop r2
   pop r1
   call div
   push r2
   call printNum
-  mov r2,msg2
+  mov r2,.msg2
   call printStr
   pop r1
   call printNum
   mov r1,10
   int INT_PrintChar
   ret
-msg0: db " / ",0
-msg1: db 9,"=   ",0
-msg2: db 9,"r ",0
+.msg0: db " / ",0
+.msg1: db 9,"=   ",0
+.msg2: db 9,"r ",0
 
 div: ; div r1 by r2
   push r3

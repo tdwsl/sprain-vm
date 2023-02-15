@@ -57,6 +57,7 @@ struct unres unres[100];
 int nunres = 0;
 struct label labels[200];
 int nlabels = 0;
+int lastNonLocal = 0;
 
 void error(const char *err) {
     printf("error at line %d in %s: %s\n", g_line, g_filename, err);
@@ -500,6 +501,10 @@ assemble:
         else if(!strcmp(tokens[0], "+"))
             resAhead();
         else {
+            if(tokens[0][0] != '.') {
+                nlabels = lastNonLocal;
+                lastNonLocal = nlabels+1;
+            }
             strcpy(labels[nlabels].name, tokens[0]);
             labels[nlabels].org = org;
             nlabels++;
@@ -515,6 +520,13 @@ assemble:
 
     /*while(oa < addr) printf("%.2X ", memory[oa++]);
     printf("\n");*/
+}
+
+int charNum(char *s, char c) {
+    int n;
+    n = 0;
+    while(*s) if(*(s++) == c) n++;
+    return n;
 }
 
 void asmFile(char *filename) {
@@ -542,7 +554,10 @@ void asmFile(char *filename) {
         while((c = fgetc(fp)) != '\n' && !feof(fp))
             *(p++) = c;
         *p = 0;
-        if(p = strchr(buf, ';')) *p = 0;
+        if((p = strchr(buf, ';')) && (p == buf || *(p-1) != '\'')) {
+            *p = 0;
+            if(charNum(buf, '"') % 2 != 0) *p = ';';
+        }
         p = buf;
         while(*p && *p <= ' ') p++;
         if(p[0]) {
