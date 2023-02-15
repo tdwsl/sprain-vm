@@ -42,7 +42,7 @@ const char *nregs[] = {
 };
 
 const char *lregs[] = {
-    "LERO", "L1", "L2", "L3", "L4", "L5", "L6", "L7",
+    "LZERO", "L1", "L2", "L3", "L4", "L5", "L6", "L7",
     "L8", "L9", "L10", "L11", "L12", "L13", "LSP", "LPC",
 };
 
@@ -489,7 +489,11 @@ assemble:
         addVal(tokens[1], T_WORD);
     } else if(!strcmp(tokens[0], "=")) {
         if(ntokens != 2) error(nargsError);
-        if(!number(tokens[1], &labels[nlabels-1].org)) error(evalError);
+        if(!tryEval(tokens[1], &labels[nlabels-1].org)) error(evalError);
+    } else if(!strcmp(tokens[0], "ALLOT")) {
+        if(ntokens != 2) error(nargsError);
+        if(!tryEval(tokens[1], &org)) error(evalError);
+        org += labels[nlabels-1].org;
     } else {
         if(!strcmp(tokens[0], "-"))
             prev = org;

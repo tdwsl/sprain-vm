@@ -14,6 +14,92 @@ void setm(uint32_t addr, uint32_t v) {
     *(uint32_t*)&memory[addr] = v;
 }
 
+void printIns(uint32_t pc) {
+    const char *insStrs[] = {
+        0, "MOV", "ADD", "PUSH", "POP", "INV", "SHR", "SHL",
+    };
+    const char *linsStrs[] = {
+        "INT", "CALL", "BEQ", "BNE", "BGE", "BLT", "MOV", "MOV",
+        "MOV", "MOV", "MOV", "AND", "OR", "XOR", "ADD", "SUB",
+    };
+    const char *regStrs[] = {
+        "ZERO", "R1", "R2", "R3", "R4", "R5", "R6", "R7",
+        "R8", "R9", "R10", "R11", "R12", "R13", "RSP", "RPC",
+    };
+    const char *lregStrs[] = {
+        "LZERO", "L1", "L2", "L3", "L4", "L5", "L6", "L7",
+        "L8", "L9", "L10", "L11", "L12", "L13", "LSP", "LPC",
+    };
+    const char *nregStrs[] = {
+        "(ZERO)", "(R1)", "(R2)", "(R3)", "(R4)", "(R5)", "(R6)", "(R7)",
+        "(R8)", "(R9)", "(R10)", "(R11)", "(R12)", "(R13)", "(RSP)", "(RPC)",
+    };
+    printf("%.8X ", pc);
+    if(memory[pc]&0xf0) printf("%s ", insStrs[memory[pc]>>4]);
+    else printf("%s ", linsStrs[memory[pc]]);
+    switch(memory[pc]&0xf0) {
+    case 0x00:
+        switch(memory[pc]) {
+        case 0x00:
+            printf("%.2X", memory[pc+1]);
+            break;
+        case 0x01:
+            printf("%.4X", getm(pc+1));
+            break;
+        case 0x02:
+        case 0x03:
+        case 0x04:
+        case 0x05:
+            printf("%s,%s %.2X",
+              regStrs[memory[pc+1]>>4], regStrs[memory[pc+1]&0x0f],
+              memory[pc+2]);
+            break;
+        case 0x06:
+            printf("%s,%s",
+              regStrs[memory[pc+1]>>4], nregStrs[memory[pc+1]&0x0f]);
+            break;
+        case 0x07:
+            printf("%s,%s",
+              nregStrs[memory[pc+1]>>4], regStrs[memory[pc+1]&0x0f]);
+            break;
+        case 0x08:
+            printf("%s,%s",
+              lregStrs[memory[pc+1]>>4], nregStrs[memory[pc+1]&0x0f]);
+            break;
+        case 0x09:
+            printf("%s,%s",
+              nregStrs[memory[pc+1]>>4], lregStrs[memory[pc+1]&0x0f]);
+            break;
+        case 0x0a:
+        case 0x0b:
+        case 0x0c:
+        case 0x0d:
+        case 0x0e:
+        case 0x0f:
+            printf("%s,%s",
+              regStrs[memory[pc+1]>>4], regStrs[memory[pc+1]&0x0f]);
+            break;
+        }
+        break;
+    case 0x10:
+        printf("%s,%.8X",
+          regStrs[memory[pc]&0x0f], getm(pc+1));
+        break;
+    case 0x20:
+    case 0x60:
+    case 0x70:
+        printf("%s,%.2X",
+          regStrs[memory[pc]&0x0f], memory[pc+1]);
+        break;
+    case 0x30:
+    case 0x40:
+    case 0x50:
+        printf("%s", regStrs[memory[pc]&0x0f]);
+        break;
+    }
+    printf("\n");
+}
+
 unsigned char run() {
     unsigned char ins;
     int i;
@@ -21,8 +107,11 @@ unsigned char run() {
         ins = memory[r_regs[15]++];
         r_regs[0] = 0;
         if(debug) {
-            for(i = 0; i < 16; i++) printf("%d ", r_regs[i]);
-            printf("\n%.8x %.2x\n", r_regs[15]-1, ins);
+            printf("         ");
+            for(i = 1; i < 15; i++) printf("%X ", r_regs[i]);
+            printf("\n\n");
+            printIns(r_regs[15]-1);
+            printf("\n");
         }
         switch(ins&0xf0) {
         case 0x00:
@@ -72,8 +161,8 @@ unsigned char run() {
                 *(unsigned char*)&r_regs[ins>>4] = memory[r_regs[ins&0x0f]];
                 break;
             case 0x09:
-                    ins = memory[r_regs[15]++];
-                memory[r_regs[ins>>4]] = memory[r_regs[ins&0x0f]];
+                ins = memory[r_regs[15]++];
+                memory[r_regs[ins>>4]] = r_regs[ins&0x0f];
                 break;
             case 0x0a:
                 ins = memory[r_regs[15]++];

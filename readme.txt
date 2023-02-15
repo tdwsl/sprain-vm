@@ -11,6 +11,9 @@ The VM has 16 registers:
 
   zero, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, rsp, rpc
 
+For the MOV instruction, these also come in low forms:
+  lzero, l1, l2, l3, l4, l5, l6, l7, l8, l9, l10, l11, l12, l13, lsp, lpc
+
 Instruction Set:
 
 As well as the instructions below, the assembler supports some pseudo-ops:
