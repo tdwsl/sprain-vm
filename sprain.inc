@@ -1,9 +1,10 @@
-; interrupts (and more) for Sprain VM
+; interrupts and constants for Sprain VM
 
 INT_Quit = $00
 
 ; text io
-INT_PrintChar = $02   ; r1 -> char
+INT_PrintChar = $02  ; r1 -> char (to stdout)
+INT_ReadChar  = $03  ; r1 <- char (from stdin)
 
 ; args
 INT_Argc = $08  ; r1 <- num of args (at least 1)
@@ -25,6 +26,23 @@ INT_FEOF = $16        ; not eof: r1 <- 0  eof: r1 <- -1
 ; file modes
 FILE_R = 0
 FILE_W = 1
+
+; console io
+INT_PutChar = $20  ; r1 -> char
+INT_GetChar = $21  ; r1 <- char
+INT_KeyDown = $22  ; r1 <- -1/0 (true/false)
+INT_Cursor  = $24  ; r2 -> y  r3 -> w
+INT_Window  = $25  ; r2 <- h  r3 <- w
+INT_Clear   = $26
+
+; keys
+K_UP    = $81
+K_DOWN  = $82
+K_RIGHT = $83
+K_LEFT  = $84
+
+; timing
+INT_Ticks = $30  ; r1 <- ticks
 
 INT_ToggleDebug = $69
 

@@ -2,10 +2,16 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#include <time.h>
+
+#ifdef CURSES
+#include <ncurses.h>
+#endif
 
 int main(int argc, char **args) {
     FILE *fp;
     unsigned char i;
+    clock_t start;
 
     if(argc < 2) {
         printf("usage: %s <file>\n", args[0]);
@@ -23,13 +29,55 @@ int main(int argc, char **args) {
     fread(memory+r_regs[15], 1, MEMORY_SIZE-r_regs[15], fp);
     fclose(fp);
 
+    start = clock();
+
+#ifdef CURSES
+    initscr();
+    keypad(stdscr, 1);
+    nodelay(stdscr, 1);
+#endif
+
     while(i = run()) { // int 0 = quit
         switch(i) {
-        case 1:
-            printf("%d ", r_regs[1]);
-            break;
         case 0x02: // PrintChar
             printf("%c", r_regs[1]&0xff);
+            break;
+        case 0x03: // ReadChar
+            r_regs[1] = fgetc(stdin);
+            break;
+#ifdef CURSES
+        case 0x20: // PutChar
+            addch(r_regs[1]);
+            break;
+        case 0x21: // GetChar
+            while((r_regs[1] = getch()) == ERR);
+            switch(r_regs[1]) {
+            case KEY_UP: r_regs[1] = 165; break;
+            case KEY_DOWN: r_regs[1] = 166; break;
+            case KEY_RIGHT: r_regs[1] = 167; break;
+            case KEY_LEFT: r_regs[1] = 168; break;
+            }
+            break;
+        case 0x22: // KeyDown
+            if((r_regs[1] = getch()) == ERR)
+                r_regs[1] = 0;
+            else {
+                ungetch(r_regs[1]);
+                r_regs[1] = 0xffffffff;
+            }
+            break;
+        case 0x24: // Cursor
+            move(r_regs[2], r_regs[3]);
+            break;
+        case 0x25: // Window
+            getmaxyx(stdscr, r_regs[2], r_regs[3]);
+            break;
+        case 0x26: // Clear
+            clear();
+            break;
+#endif
+        case 0x30: // Ticks
+            r_regs[1] = (clock()-start)/((double)CLOCKS_PER_SEC/1000.0);
             break;
         case 0x08: // Argc
             r_regs[1] = argc-1;
@@ -80,6 +128,12 @@ int main(int argc, char **args) {
             break;
         }
     }
+
+#ifdef CURSES
+    nodelay(stdscr, 0);
+    keypad(stdscr, 0);
+    endwin();
+#endif
 
     return 0;
 }

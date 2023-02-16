@@ -3,7 +3,7 @@
   org $1004-4
   dw $1004
 
-  include "interrupts.inc"
+  include "sprain.inc"
 
   ;int INT_ToggleDebug
   int INT_Argc

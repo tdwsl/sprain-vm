@@ -3,7 +3,7 @@
   org $1000-4
   dw $1000
 
-  include "interrupts.inc"
+  include "sprain.inc"
 
   mov r1,10
   mov r2,-1
