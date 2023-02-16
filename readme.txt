@@ -1,4 +1,4 @@
-Sprain VM - tdwsl 2022
+Sprain VM - tdwsl 2023
 
 Sprain VM is a simple virtual processor that is easy to use and easy to
 implement. Its purpose is to develop portable programs with a small footprint.
@@ -18,9 +18,12 @@ Instruction Set:
 
 As well as the instructions below, the assembler supports some pseudo-ops:
 
-  jmp I32  -> mov rsp,I32
-  bra I8   -> add rsp,I8
-  ret      -> pop rsp
+  jmp I32  -> mov rpc,I32
+  jmp R    -> mov rpc,R
+  jmp (R)  -> mov rpc,(R)
+  bra I8   -> add rpc,I8
+  ret      -> pop rpc
+  sub R,I8 -> add R,-I8
 
 Register-register instructions use the next byte to store the register.
 The sizes of instructions according to their operands are:

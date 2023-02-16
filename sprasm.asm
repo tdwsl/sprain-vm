@@ -1,4 +1,4 @@
-; native assembler for sprain vm (wip)
+; wip
 
   org $1004-4
   dw $1004
@@ -25,8 +25,9 @@
 usageMsg: db "usage: sprasm <file> <out>",10,0
 failROpenMsg: db "failed to open input file",10,0
 failWOpenMsg: db "failed to open output file",10,0
-
 whiteStr: db 9," :,",0
+syntaxError: db "syntax error",0
+quoteError: db "unterminated quote",0
 
 asmFile:
   mov r1,FILE_R
@@ -38,7 +39,7 @@ asmFile:
     int INT_Quit
   +
 
-  mov r2,lineBuf
+  mov r2,lineNumber
   mov r1,1
   mov (r2),r1
 
@@ -51,7 +52,7 @@ asmFile:
       mov (r2),l1
     +
     mov l1,(r2)
-    add r1,-10 ; newline
+    sub r1,10
     bne r1,zero +
       mov (r2),lzero
       call asmLine
@@ -71,21 +72,33 @@ asmFile:
   int INT_FClose
   ret
 
-asmLine:
-  ; comment
-  mov r2,lineBuf
-  mov r1,';'
-  call strchr
-  beq r2,zero +
-    mov (r2),lzero
-  +
+error:
+  push r2
+  mov r2,filenameBuf
+  call printStr
+  mov r1,':'
+  int INT_PrintChar
+  mov r1,lineNumber
+  mov r1,(r1)
+  call printNum
+  mov r2,.msg
+  call printStr
+  pop r2
+  call printStr
+  mov r1,10
+  int INT_PrintChar
+  int INT_Quit
+.msg: db " error: ",0
 
+asmLine:
   ; tokenize
   mov r4,tokmem
   mov r5,r4
   mov r6,tokens
   mov r3,lineBuf
-  - mov l1,(r3)
+  mov r13,error
+  .tokenize:
+    mov l1,(r3)
     beq r1,zero .white
     mov r2,whiteStr
     call strchr
@@ -100,17 +113,46 @@ asmLine:
       +
       beq r1,zero .end
       add r3,1
-      bra -
+      bra .tokenize
     .nowhite:
     mov r2,r1
-    add r2,-34 ; "
-    bne r2,zero +
-      ;;
-    +
+    sub r2,'"'
+    bne r2,zero .noquote
+      mov r2,r3
+      add r2,1
+      call strchr
+      bne r2,zero +
+        mov r2,quoteError
+        jmp r13
+      +
+      beq r4,r5 +
+        mov r2,syntaxError
+        jmp r13
+      +
+      - mov (r5),l1
+        add r3,1
+        add r5,1
+        mov l1,(r3)
+        blt r3,r2 -
+      mov (r5),lzero
+      add r5,1
+      mov (r6),r4
+      add r6,4
+      mov r4,r5
+      mov r3,r2
+      add r3,1
+      jmp .tokenize
+    .noquote:
+    mov r2,r1
+    sub r2,';'
+    bne r2,zero .nosemi
+      mov (r3),lzero
+      jmp .tokenize
+    .nosemi:
     mov (r5),l1
     add r5,1
     add r3,1
-    bra -
+    jmp .tokenize
 .end:
   mov r2,lastToken
   mov (r2),r6
@@ -164,6 +206,34 @@ strchr:
 .N:
   mov r2,zero
   pop r3
+  ret
+
+div:
+  push r3
+  mov r3,zero
+  - blt r1,r2 +
+    sub r1,r2
+    add r3,1
+    bra -
+  +
+  mov r2,r1
+  mov r1,r3
+  pop r3
+  ret
+
+printNum:
+  mov r3,zero
+  - mov r2,10
+    call div
+    push r2
+    add r3,1
+    bne r1,zero -
+
+  - pop r1
+    add r1,'0'
+    int INT_PrintChar
+    add r3,-1
+    bne r3,zero -
   ret
 
 printStr:

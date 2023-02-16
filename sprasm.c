@@ -156,8 +156,8 @@ int number(char *s, uint32_t *n) {
 }
 
 int evalVal(char *val, uint32_t *n) {
-    const char *charError = "invalid char";
     struct label *lbl;
+    const char *charError = "invalid char";
 
     if(!number(val, n)) {
         lbl = findLabel(val);
@@ -277,10 +277,12 @@ void asmLine(char *line) {
     const char *nargsError = "wrong number of args";
     const char *argsError = "wrong combination of args";
     const char *evalError = "failed to evaluate expression";
+    const char *quoteError = "unterminated quote";
     const char *white = " \t,:";
     char *tokens[40];
     int ntokens = 0;
     char buf[200];
+    char buf1[50];
     char *p, *b, *s;
     char a1, a2;
     int i, j;
@@ -299,11 +301,21 @@ void asmLine(char *line) {
         if(*line == '"') {
             if(b != p) error(syntaxError);
             s = strchr(line+1, '"');
-            if(!s) error("unterminated quote");
+            if(!s) error(quoteError);
             while(line < s) *(p++) = *(line++);
             *p = 0;
             tokens[ntokens++] = b;
             b = ++p;
+        } else if(*line == ';') {
+            if(b != p) { *p = 0; tokens[ntokens++] = b; }
+            break;
+        } else if(*line == '\'') {
+            if(line[1] == 0 || line[2] == 0 ||
+                line[2] != '\'') error(quoteError);
+            *(p++) = line[0];
+            *(p++) = line[1];
+            *(p++) = line[2];
+            line += 2;
         } else {
             if(*line >= 'a' && *line <= 'z') *line += 'A'-'a';
 
@@ -320,6 +332,8 @@ void asmLine(char *line) {
         }
         line++;
     }
+
+    if(!ntokens) return;
 
     /* assemble */
 
@@ -447,9 +461,14 @@ assemble:
         if(ntokens != 3) error(nargsError);
         a1 = argType(tokens[1], &r1);
         a2 = argType(tokens[2], &r2);
-        if(a1 != A_REG || a2 != A_REG) error(argsError);
-        addByte(0x0F);
-        addByte((r1<<4)|r2);
+        if(a1 == A_REG && a2 == A_OTHER) {
+            addByte(0x20|r1);
+            sprintf(buf1, "0-%s", tokens[2]);
+            addVal(buf1, T_BYTE);
+        } else if(a1 == A_REG && a2 == A_REG) {
+            addByte(0x0F);
+            addByte((r1<<4)|r2);
+        } else error(argsError);
     } else if(!strcmp(tokens[0], "PUSH")) {
         if(ntokens != 2) error(nargsError);
         a1 = argType(tokens[1], &r1);
@@ -486,8 +505,17 @@ assemble:
         addByte(0x4F);
     } else if(!strcmp(tokens[0], "JMP")) {
         if(ntokens != 2) error(nargsError);
-        addByte(0x1F);
-        addVal(tokens[1], T_WORD);
+        a1 = argType(tokens[1], &r1);
+        if(a1 == A_REG) {
+            addByte(0x0A);
+            addByte(0xF0|r1);
+        } else if(a1 == A_NREG) {
+            addByte(0x06);
+            addByte(0xF0|r1);
+        } else {
+            addByte(0x1F);
+            addVal(tokens[1], T_WORD);
+        }
     } else if(!strcmp(tokens[0], "=")) {
         if(ntokens != 2) error(nargsError);
         if(!tryEval(tokens[1], &labels[nlabels-1].org)) error(evalError);
@@ -522,13 +550,6 @@ assemble:
     printf("\n");*/
 }
 
-int charNum(char *s, char c) {
-    int n;
-    n = 0;
-    while(*s) if(*(s++) == c) n++;
-    return n;
-}
-
 void asmFile(char *filename) {
     FILE *fp;
     unsigned int line;
@@ -554,10 +575,6 @@ void asmFile(char *filename) {
         while((c = fgetc(fp)) != '\n' && !feof(fp))
             *(p++) = c;
         *p = 0;
-        if((p = strchr(buf, ';')) && (p == buf || *(p-1) != '\'')) {
-            *p = 0;
-            if(charNum(buf, '"') % 2 != 0) *p = ';';
-        }
         p = buf;
         while(*p && *p <= ' ') p++;
         if(p[0]) {
