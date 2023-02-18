@@ -10,15 +10,14 @@ var debug = false;
 
 function setb(addr, v) {
     v = Math.floor(v);
-    if(v < 0) v = ~(v*-1)+1;
-    v &= 0xff;
+    v %= 0x100;
     memory[addr] = v;
 }
 
 function getb(addr) {
     var v = memory[addr];
-    if(v & 0x80) v = (~v+1)*-1;
-    return b;
+    if((v&0x80) != 0) v = ~(v^0xff);
+    return v;
 }
 
 function setm(addr, v) {
@@ -100,7 +99,7 @@ function printIns(pc) {
     if((memory[pc]&0xf0) == 0) ins = ins.concat(linsStrs[memory[pc]]);
     else ins = ins.concat(insStrs[memory[pc]>>4]);
     ins = ins.concat(" ");
-    switch(memory[pc&0xf0]) {
+    switch(memory[pc]&0xf0) {
     case 0x00:
         switch(memory[pc]) {
         case 0x00:
@@ -117,7 +116,7 @@ function printIns(pc) {
               .concat(",")
               .concat(regStrs[memory[pc+1]&0x0f])
               .concat(" ")
-              .concat(hexw(getm(pc+2)));
+              .concat(hexb(memory[pc+2]));
             break;
         case 0x06:
             ins = ins.concat(regStrs[memory[pc+1]>>4])
@@ -153,12 +152,14 @@ function printIns(pc) {
         break;
     case 0x10:
         ins = ins.concat(regStrs[memory[pc]&0x0f])
+          .concat(",")
           .concat(hexw(getm(pc+1)));
         break;
     case 0x20:
     case 0x60:
     case 0x70:
         ins = ins.concat(regStrs[memory[pc]&0x0f])
+          .concat(",")
           .concat(hexb(memory[pc+1]));
         break;
     case 0x30:
@@ -179,13 +180,13 @@ function printRegs() {
 
 function run() {
     var ins;
-    //for(;;) {
+    for(;;) {
         if(debug) {
             printRegs();
             printIns(regs[15]);
         }
         ins = memory[regs[15]++];
-        switch(ins&0x0f) {
+        switch(ins&0xf0) {
         case 0x00:
             switch(ins) {
             case 0x00:
@@ -267,31 +268,31 @@ function run() {
             break;
         case 0x10:
             regs[15] += 4;
-            regs[ins>>4] = getm(regs[15]-4);
+            regs[ins&0x0f] = getm(regs[15]-4);
             break;
         case 0x20:
             regs[15]++;
-            regs[ins>>4] += getb(r_regs[15]-1);
-            regs[ins>>4] %= 0x100000000;
+            regs[ins&0x0f] += getb(regs[15]-1);
+            regs[ins&0x0f] %= 0x100000000;
             break;
         case 0x30:
-            push(regs[ins>>4]);
+            push(regs[ins&0x0f]);
             break;
         case 0x40:
-            regs[ins>>4] = pop();
+            regs[ins&0x0f] = pop();
             break;
         case 0x50:
-            regs[ins>>4] = ~regs[ins>>4];
+            regs[ins&0x0f] = ~regs[ins>>4];
             break;
         case 0x60:
             regs[15]++;
-            regs[ins>>4] >>= memory[regs[15]-1];
+            regs[ins&0x0f] >>= memory[regs[15]-1];
             break;
         case 0x70:
             regs[15]++;
-            regs[ins>>4] <<= memory[regs[15]-1];
+            regs[ins&0x0f] <<= memory[regs[15]-1];
             break;
         }
-    //}
+    }
     return -1;
 }
