@@ -4,7 +4,9 @@
 #include <string.h>
 #include <time.h>
 
-#ifdef CURSES
+#ifdef CONIO
+#include <conio.h>
+#else
 #include <ncurses.h>
 #endif
 
@@ -31,7 +33,9 @@ int main(int argc, char **args) {
 
     start = clock();
 
-#ifdef CURSES
+#ifdef CONIO
+    clrscr();
+#else
     initscr();
     keypad(stdscr, 1);
     nodelay(stdscr, 1);
@@ -39,13 +43,28 @@ int main(int argc, char **args) {
 
     while(i = run()) { // int 0 = quit
         switch(i) {
-        case 0x02: // PrintChar
-            printf("%c", r_regs[1]&0xff);
+#ifdef CONIO
+        case 0x20: // PutChar
+            putch(r_regs[1]);
             break;
-        case 0x03: // ReadChar
-            r_regs[1] = fgetc(stdin);
+        case 0x21: // GetChar
+            r_regs[1] = getch();
             break;
-#ifdef CURSES
+        case 0x22: // KeyDown
+            if(kbhit()) r_regs[1] = 0xffffffff;
+            else r_regs[1] = 0;
+            break;
+        case 0x24: // Cursor
+            gotoxy(r_regs[3]+1, r_regs[2]+1);
+            break;
+        case 0x25: // Window
+            r_regs[3] = 80;
+            r_regs[2] = 24;
+            break;
+        case 0x26: // Clear
+            clrscr();
+            break;
+#else
         case 0x20: // PutChar
             addch(r_regs[1]);
             break;
@@ -129,7 +148,9 @@ int main(int argc, char **args) {
         }
     }
 
-#ifdef CURSES
+#ifdef CONIO
+    clrscr();
+#else
     nodelay(stdscr, 0);
     keypad(stdscr, 0);
     endwin();

@@ -7,6 +7,7 @@
 
   mov r2,helloMsg
   call printStr
+  int INT_GetChar
   int INT_Quit
 
 helloMsg:
@@ -16,7 +17,7 @@ printStr:
   mov r1,zero
   - mov l1,(r2)
     beq r1,zero +
-    int INT_PrintChar
+    int INT_PutChar
     add r2,1
     bra -
 + ret

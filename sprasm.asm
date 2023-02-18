@@ -11,6 +11,7 @@
   beq r1,zero +
     mov r2,usageMsg
     call printStr
+    int INT_GetChar
     int INT_Quit
   +
 
@@ -20,6 +21,7 @@
   int INT_Argv
   call asmFile
 
+  int INT_GetChar
   int INT_Quit
 
 usageMsg: db "usage: sprasm <file> <out>",10,0
@@ -36,6 +38,7 @@ asmFile:
   beq r1,zero +
     mov r2,failROpenMsg
     call printStr
+    int INT_GetChar
     int INT_Quit
   +
 
@@ -77,7 +80,7 @@ error:
   mov r2,filenameBuf
   call printStr
   mov r1,':'
-  int INT_PrintChar
+  int INT_PutChar
   mov r1,lineNumber
   mov r1,(r1)
   call printNum
@@ -86,7 +89,7 @@ error:
   pop r2
   call printStr
   mov r1,10
-  int INT_PrintChar
+  int INT_PutChar
   int INT_Quit
 .msg: db " error: ",0
 
@@ -158,7 +161,7 @@ asmLine:
   mov (r2),r6
 
   mov r1,10
-  int INT_PrintChar
+  int INT_PutChar
 
   mov r1 tokens
   bne r1,r6 +
@@ -171,7 +174,7 @@ asmLine:
   - mov r2,(r3)
     call printStr
     mov r1,10
-    int INT_PrintChar
+    int INT_PutChar
     add r3,4
     blt r3,r4 -
 
@@ -231,7 +234,7 @@ printNum:
 
   - pop r1
     add r1,'0'
-    int INT_PrintChar
+    int INT_PutChar
     add r3,-1
     bne r3,zero -
   ret
@@ -240,7 +243,7 @@ printStr:
   mov r1,zero
   - mov l1,(r2)
     beq r1,zero +
-    int INT_PrintChar
+    int INT_PutChar
     add r2,1
     bra -
   +

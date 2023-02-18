@@ -19,6 +19,7 @@
     bra -
   +
 
+  int INT_GetChar
   int INT_Quit
   
 .vals:
@@ -45,7 +46,7 @@ printDiv: ; print r1/r2
   pop r1
   call printNum
   mov r1,10
-  int INT_PrintChar
+  int INT_PutChar
   ret
 .msg0: db " / ",0
 .msg1: db 9,"=   ",0
@@ -76,7 +77,7 @@ printNum: ; print r1
 
   - pop r1
     add r1,'0'
-    int INT_PrintChar
+    int INT_PutChar
     add r3,-1
     bne r3,zero -
   pop r3
@@ -88,7 +89,7 @@ printStr: ; print str at r2
   mov r1,zero
   - mov l1,(r2)
     beq r1,zero +
-    int INT_PrintChar
+    int INT_PutChar
     add r2,1
     bra -
 + pop r1

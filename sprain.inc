@@ -2,10 +2,6 @@
 
 INT_Quit = $00
 
-; text io
-INT_PrintChar = $02  ; r1 -> char (to stdout)
-INT_ReadChar  = $03  ; r1 <- char (from stdin)
-
 ; args
 INT_Argc = $08  ; r1 <- num of args (at least 1)
 INT_Argv = $09  ; r1 -> arg index  r2 -> max size  r3 -> dest

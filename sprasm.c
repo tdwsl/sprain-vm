@@ -616,7 +616,8 @@ void checkUnres() {
 }
 
 void printLabels() {
-    for(int i = 0; i < nlabels; i++)
+    int i;
+    for(i = 0; i < nlabels; i++)
         printf("$%.8X %s\n", labels[i].org, labels[i].name);
 }
 
