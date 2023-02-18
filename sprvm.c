@@ -6,6 +6,7 @@
 uint8_t memory[MEMORY_SIZE];
 uint32_t r_regs[16];
 bool debug = 0;
+FILE *logfp;
 
 uint32_t getm(uint32_t addr) {
     return *(uint32_t*)&memory[addr];
@@ -35,40 +36,40 @@ void printIns(uint32_t pc) {
         "(ZERO)", "(R1)", "(R2)", "(R3)", "(R4)", "(R5)", "(R6)", "(R7)",
         "(R8)", "(R9)", "(R10)", "(R11)", "(R12)", "(R13)", "(RSP)", "(RPC)",
     };
-    printf("%.8X ", pc);
-    if(memory[pc]&0xf0) printf("%s ", insStrs[memory[pc]>>4]);
-    else printf("%s ", linsStrs[memory[pc]]);
+    fprintf(logfp, "%.8X ", pc);
+    if(memory[pc]&0xf0) fprintf(logfp, "%s ", insStrs[memory[pc]>>4]);
+    else fprintf(logfp, "%s ", linsStrs[memory[pc]]);
     switch(memory[pc]&0xf0) {
     case 0x00:
         switch(memory[pc]) {
         case 0x00:
-            printf("%.2X", memory[pc+1]);
+            fprintf(logfp, "%.2X", memory[pc+1]);
             break;
         case 0x01:
-            printf("%.4X", getm(pc+1));
+            fprintf(logfp, "%.4X", getm(pc+1));
             break;
         case 0x02:
         case 0x03:
         case 0x04:
         case 0x05:
-            printf("%s,%s %.2X",
+            fprintf(logfp, "%s,%s %.2X",
               regStrs[memory[pc+1]>>4], regStrs[memory[pc+1]&0x0f],
               memory[pc+2]);
             break;
         case 0x06:
-            printf("%s,%s",
+            fprintf(logfp, "%s,%s",
               regStrs[memory[pc+1]>>4], nregStrs[memory[pc+1]&0x0f]);
             break;
         case 0x07:
-            printf("%s,%s",
+            fprintf(logfp, "%s,%s",
               nregStrs[memory[pc+1]>>4], regStrs[memory[pc+1]&0x0f]);
             break;
         case 0x08:
-            printf("%s,%s",
+            fprintf(logfp, "%s,%s",
               lregStrs[memory[pc+1]>>4], nregStrs[memory[pc+1]&0x0f]);
             break;
         case 0x09:
-            printf("%s,%s",
+            fprintf(logfp, "%s,%s",
               nregStrs[memory[pc+1]>>4], lregStrs[memory[pc+1]&0x0f]);
             break;
         case 0x0a:
@@ -77,28 +78,28 @@ void printIns(uint32_t pc) {
         case 0x0d:
         case 0x0e:
         case 0x0f:
-            printf("%s,%s",
+            fprintf(logfp, "%s,%s",
               regStrs[memory[pc+1]>>4], regStrs[memory[pc+1]&0x0f]);
             break;
         }
         break;
     case 0x10:
-        printf("%s,%.8X",
+        fprintf(logfp, "%s,%.8X",
           regStrs[memory[pc]&0x0f], getm(pc+1));
         break;
     case 0x20:
     case 0x60:
     case 0x70:
-        printf("%s,%.2X",
+        fprintf(logfp, "%s,%.2X",
           regStrs[memory[pc]&0x0f], memory[pc+1]);
         break;
     case 0x30:
     case 0x40:
     case 0x50:
-        printf("%s", regStrs[memory[pc]&0x0f]);
+        fprintf(logfp, "%s", regStrs[memory[pc]&0x0f]);
         break;
     }
-    printf("\n");
+    fprintf(logfp, "\n");
 }
 
 uint8_t run() {
@@ -108,11 +109,11 @@ uint8_t run() {
         ins = memory[r_regs[15]++];
         r_regs[0] = 0;
         if(debug) {
-            printf("         ");
-            for(i = 1; i < 15; i++) printf("%X ", r_regs[i]);
-            printf("\n\n");
+            fprintf(logfp, "         ");
+            for(i = 1; i < 15; i++) fprintf(logfp, "%X ", r_regs[i]);
+            fprintf(logfp, "\n\n");
             printIns(r_regs[15]-1);
-            printf("\n");
+            fprintf(logfp, "\n");
         }
         switch(ins&0xf0) {
         case 0x00:

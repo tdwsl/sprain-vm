@@ -12,11 +12,26 @@
 
 int main(int argc, char **args) {
     FILE *fp;
-    unsigned char i;
+    unsigned char tr;
     clock_t start;
+    int i;
+
+    while(argc > 1 && args[1][0] == '-') {
+        switch(args[1][1]) {
+        case 'd':
+            debug = 1;
+            logfp = fopen("log.txt", "a");
+            break;
+        default:
+            printf("invalid switch %s\n", args[1]);
+            return 1;
+        }
+        argc--;
+        for(i = 1; i < argc; i++) args[i] = args[i+1];
+    }
 
     if(argc < 2) {
-        printf("usage: %s <file>\n", args[0]);
+        printf("usage: %s [-d] <file>\n", args[0]);
         return 0;
     }
 
@@ -41,8 +56,8 @@ int main(int argc, char **args) {
     nodelay(stdscr, 1);
 #endif
 
-    while(i = run()) { // int 0 = quit
-        switch(i) {
+    while(tr = run()) { // int 0 = quit
+        switch(tr) {
 #ifdef CONIO
         case 0x20: // PutChar
             putch(r_regs[1]);
@@ -144,9 +159,13 @@ int main(int argc, char **args) {
             break;
         case 0x69: // ToggleDebug
             debug = !debug;
+            if(debug) logfp = fopen("log.txt", "a");
+            else fclose(logfp);
             break;
         }
     }
+
+    if(debug) fclose(logfp);
 
 #ifdef CONIO
     clrscr();
