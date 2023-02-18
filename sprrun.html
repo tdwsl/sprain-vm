@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title> Sprain VM </title>
+    <style>
+        * {
+            font: 16px Sans Monospace bold;
+            margin: 0;
+            padding: 0;
+            color: white;
+            background-color: black;
+        }
+    </style>
+  </head>
+
+  <body>
+    <script src="fakefs.js"></script>
+    <script src="sprvm.js"></script>
+    <script>
+      var term = [];
+      var tw = 40, th = 24;
+      var tcursor = 0;
+      for(var i = 0; i < tw*th; i++) term[i] = 64;
+      debug = true;
+
+      function redraw() {
+          var htm = "";
+          for(var i = 0; i < th; i++) {
+              var line = "";
+              for(var j = 0; j < tw; j++) {
+                  var c = String.fromCharCode(term[i*tw+j]);
+                  if(c == ' ') c = "&nbsp";
+                  line = line.concat(c);
+              }
+              htm = htm.concat("<p>".concat(line).concat("</p>"));
+          }
+          htm = htm.concat("</div>");
+          document.body.innerHTML = htm;
+      }
+
+      function update() {
+          var i = run();
+          switch(i) {
+          case -1: // nil
+              break;
+          case 0x00: // Quit
+              regs[15] -= 2;
+              break;
+          case 0x20: // PutChar
+              term[tcursor++] = regs[1]&0xff;
+              tcursor %= (tw*th);
+              redraw();
+              break;
+          case 0x21: // GetChar
+              break;
+          case 0x22: // KeyDown
+              break;
+          case 0x24: // Cursor
+              tcursor = regs[2]*tw+regs[3];
+              redraw();
+              break;
+          case 0x25: // Window
+              regs[2] = th;
+              regs[3] = tw;
+              break;
+          case 0x26: // Clear
+              term.fill(32, 0, tw*th);
+              redraw();
+              break;
+          case 0x08: // Argc
+              regs[1] = 0;
+              break;
+          case 0x09: // Argv
+              break;
+          case 0x10: // FOpen
+              regs[1] = 0xffffffff;
+              break;
+          case 0x11: // FClose
+              break;
+          case 0x12: // FWriteChar
+              break;
+          case 0x13: // FWrite
+              break;
+          case 0x14: // FReadChar
+              break;
+          case 0x15: // FRead
+              break;
+          case 0x16: // FEOF
+              break;
+          case 0x69: // ToggleDebug
+              debug = !debug;
+              break;
+          }
+      }
+
+      loadProgram(file("test0.bin"));
+      redraw();
+      setInterval(update, 500);
+    </script>
+  </body>
+</html>

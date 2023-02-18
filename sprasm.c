@@ -30,7 +30,7 @@ struct unres {
     char type;
 };
 
-uint8_t memory[16777316];
+uint8_t memory[16777216];
 
 const char *regs[] = {
     "ZERO", "R1", "R2", "R3", "R4", "R5", "R6", "R7",
