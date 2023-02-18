@@ -1,7 +1,6 @@
 Sprain VM - tdwsl 2023
 
-Sprain VM is a simple virtual processor that is easy to use and easy to
-implement. Its purpose is to develop portable programs with a small footprint.
+Sprain VM is a simple virtual processor.
 
 It is 32-bits, little-endian and the stack expands positively, with the last
 pushed value sitting at rsp-4. Its primary method of interfacing is through
