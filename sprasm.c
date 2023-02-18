@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 
 enum {
     T_WORD,
@@ -29,7 +30,7 @@ struct unres {
     char type;
 };
 
-unsigned char memory[16777316];
+uint8_t memory[16777316];
 
 const char *regs[] = {
     "ZERO", "R1", "R2", "R3", "R4", "R5", "R6", "R7",
@@ -78,7 +79,7 @@ char argType(char *s, int *np) {
     return t;
 }
 
-void addByte(char b) {
+void addByte(int8_t b) {
     memory[addr++] = b;
     org++;
 }
@@ -119,8 +120,8 @@ struct label *findLabel(char *name) {
     return 0;
 }
 
-int number(char *s, uint32_t *n) {
-    char neg = 0;
+bool number(char *s, uint32_t *n) {
+    bool neg = 0;
     char base = 10;
 
     if(*s == '-') {
@@ -155,7 +156,7 @@ int number(char *s, uint32_t *n) {
     return 1;
 }
 
-int evalVal(char *val, uint32_t *n) {
+bool evalVal(char *val, uint32_t *n) {
     struct label *lbl;
     const char *charError = "invalid char";
 
@@ -172,7 +173,7 @@ int evalVal(char *val, uint32_t *n) {
     return 1;
 }
 
-int tryEval(char *ex, uint32_t *n) {
+bool tryEval(char *ex, uint32_t *n) {
     char *vals[20];
     char ops[20];
     char *p, *b;
@@ -230,7 +231,7 @@ void resolve() {
             memory[unres[i].addr] = n;
             break;
         case T_REL:
-            memory[unres[i].addr] = (char)(n-unres[i].org-1);
+            memory[unres[i].addr] = (int8_t)(n-unres[i].org-1);
             break;
         }
         unres[i] = unres[--nunres];

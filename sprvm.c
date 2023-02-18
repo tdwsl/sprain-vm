@@ -1,10 +1,11 @@
 #include "sprvm.h"
 #include <stdint.h>
 #include <stdio.h>
+#include <stdbool.h>
 
-unsigned char memory[MEMORY_SIZE];
+uint8_t memory[MEMORY_SIZE];
 uint32_t r_regs[16];
-unsigned char debug = 0;
+bool debug = 0;
 
 uint32_t getm(uint32_t addr) {
     return *(uint32_t*)&memory[addr];
@@ -100,8 +101,8 @@ void printIns(uint32_t pc) {
     printf("\n");
 }
 
-unsigned char run() {
-    unsigned char ins;
+uint8_t run() {
+    uint8_t ins;
     int i;
     for(;;) {
         ins = memory[r_regs[15]++];
@@ -128,25 +129,25 @@ unsigned char run() {
                 ins = memory[r_regs[15]];
                 r_regs[15] += 2;
                 if(r_regs[ins>>4] == r_regs[ins&0x0f])
-                    r_regs[15] += (char)memory[r_regs[15]-1];
+                    r_regs[15] += (int8_t)memory[r_regs[15]-1];
                 break;
             case 0x03:
                 ins = memory[r_regs[15]];
                 r_regs[15] += 2;
                 if(r_regs[ins>>4] != r_regs[ins&0x0f])
-                    r_regs[15] += (char)memory[r_regs[15]-1];
+                    r_regs[15] += (int8_t)memory[r_regs[15]-1];
                 break;
             case 0x04:
                 ins = memory[r_regs[15]];
                 r_regs[15] += 2;
                 if(!((r_regs[ins>>4] - r_regs[ins&0x0f]) & 0x80000000))
-                    r_regs[15] += (char)memory[r_regs[15]-1];
+                    r_regs[15] += (int8_t)memory[r_regs[15]-1];
                 break;
             case 0x05:
                 ins = memory[r_regs[15]];
                 r_regs[15] += 2;
                 if((r_regs[ins>>4] - r_regs[ins&0x0f]) & 0x80000000)
-                    r_regs[15] += (char)memory[r_regs[15]-1];
+                    r_regs[15] += (int8_t)memory[r_regs[15]-1];
                 break;
             case 0x06:
                 ins = memory[r_regs[15]++];
@@ -158,7 +159,7 @@ unsigned char run() {
                 break;
             case 0x08:
                 ins = memory[r_regs[15]++];
-                *(unsigned char*)&r_regs[ins>>4] = memory[r_regs[ins&0x0f]];
+                *(uint8_t*)&r_regs[ins>>4] = memory[r_regs[ins&0x0f]];
                 break;
             case 0x09:
                 ins = memory[r_regs[15]++];
@@ -196,7 +197,7 @@ unsigned char run() {
             break;
         case 0x20:
             r_regs[15]++;
-            r_regs[ins&0x0f] += (char)memory[r_regs[15]-1];
+            r_regs[ins&0x0f] += (int8_t)memory[r_regs[15]-1];
             break;
         case 0x30:
             setm(r_regs[14], r_regs[ins&0x0f]);
